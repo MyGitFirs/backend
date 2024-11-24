@@ -261,11 +261,55 @@ const getActiveSessionStudents = async (req, res) => {
   }
 };
 
+const getAttendanceBySessionId = async (req, res) => {
+  const { sessionId } = req.params;
+
+  try {
+    const pool = await sql.connect(config);
+
+    // Query to get attendance details for the given session ID
+    const result = await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .query(`
+        SELECT 
+          u.id AS student_id,
+          u.full_name,
+          u.year_level,
+          u.section,
+          u.courses,
+          a.status AS attendance_status,
+          a.date,
+          a.timestamp
+        FROM attendance_status a
+        JOIN users u ON a.student_id = u.id
+        WHERE a.session_id = @sessionId
+      `);
+
+    if (result.recordset.length > 0) {
+      res.status(200).json({
+        success: true,
+        data: result.recordset,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'No attendance records found for the specified session ID.',
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching attendance by session ID:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error. Please try again later.',
+    });
+  }
+};
 
 
 module.exports = {
     createSession,
     checkAttendance,
     getAttendanceByCriteria,
-    getActiveSessionStudents
+    getActiveSessionStudents,
+    getAttendanceBySessionId
 };

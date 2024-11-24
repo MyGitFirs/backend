@@ -13,5 +13,6 @@ router.post('/get-attendance', sessionController.getAttendanceByCriteria);
 
 router.get('/active-session-students/:sessionId', sessionController.getActiveSessionStudents);
 
+router.get('/session/:sessionId', sessionController.getAttendanceBySessionId);
 
 module.exports = router;
