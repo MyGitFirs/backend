@@ -142,9 +142,12 @@ const checkAttendance = async (req, res) => {
       .input('sessionId', sql.Int, sessionId)
       .query('SELECT * FROM sessions WHERE id = @sessionId AND active = 1');
 
-    if (sessionResult.recordset.length === 0) {
-      return res.status(404).json({ error: 'Invalid or inactive session' });
-    }
+      if (sessionResult.recordset.length === 0) {
+        if (sessionResult.recordset.active === 0) {
+          return res.status(403).json({ error: 'Session is inactive.' });
+        }
+        return res.status(404).json({ error: 'Session does not exist.' });
+      }      
 
     // Calculate the distance between student and teacher
     const distance = haversineDistance(studentLat, studentLon, teacherLat, teacherLon);
