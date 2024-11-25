@@ -152,7 +152,7 @@ const checkAttendance = async (req, res) => {
 
     // Get the session expiration time (if stored in the database)
     const session = sessionResult.recordset[0];
-    const expiresAt = session.expires_at ? new Date(session.expires_at) : null;
+    let expiresAt = session.expires_at ? new Date(session.expires_at) : null;
 
     // Alternatively, calculate expiresAt if it's not stored
     if (!expiresAt) {
@@ -197,6 +197,7 @@ const checkAttendance = async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 };
+
 
 
 
