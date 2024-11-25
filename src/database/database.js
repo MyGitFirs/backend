@@ -1,13 +1,13 @@
 const sql = require('mssql'); // Use 'sql' instead of 'mysql' for clarity
 
 const config = {
-    user: 'admin',
-    password: 'qwerty',
-    server: 'localhost',
-    database: 'capstone',
+    user: 'admin@2536@shopp',
+    password: 'Timothy@23',
+    server: 'shopp.database.windows.net',
+    database: 'Server',
     port: 1433,
     options: {
-        encrypt: false, // Set to true if using Azure, otherwise false for local SQL Server
+        encrypt: true, // Set to true if using Azure, otherwise false for local SQL Server
         enableArithAbort: true,
         trustServerCertificate: true 
     }

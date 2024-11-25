@@ -100,12 +100,33 @@ const createSession = async (req, res) => {
 };
 
 
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const R = 6371; // Radius of Earth in kilometers
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // Distance in kilometers
+};
 
 const checkAttendance = async (req, res) => {
-  const { qrData, studentId } = req.body;
+  const { qrData, studentId, studentLat, studentLon } = req.body;
   const parsedQrData = JSON.parse(qrData);
-  const sessionId = parseInt(qrData, 10);
+  const sessionId = parseInt(parsedQrData.session_id, 10);
   const expiresAt = new Date(parsedQrData.expiresAt);
+  const maxDistanceKm = 0.1; // Maximum allowed distance in kilometers (e.g., 100 meters)
+
+  // Define teacher's default location (latitude and longitude)
+  const teacherLat = 15.145370; // Example latitude
+  const teacherLon = 120.596070; // Example longitude
 
   if (new Date() > expiresAt) {
     return res.status(400).json({ error: 'QR code expired' });
@@ -132,27 +153,37 @@ const checkAttendance = async (req, res) => {
       return res.status(404).json({ error: 'Invalid or inactive session' });
     }
 
+    // Calculate the distance between student and teacher
+    const distance = haversineDistance(studentLat, studentLon, teacherLat, teacherLon);
+
+    if (distance > maxDistanceKm) {
+      return res.status(400).json({ error: 'Student is not within the allowed proximity' });
+    }
+
+    // Mark attendance as present
     const attendanceResult = await pool.request()
-    .input('sessionId', sql.Int, sessionId)
-    .input('studentId', sql.Int, studentId)
-    .query('SELECT * FROM attendance_status WHERE session_id = @sessionId AND student_id = @studentId');
-  
-  // If record exists, update it instead of returning an error
-  if (attendanceResult.recordset.length > 0) {
-    await pool.request()
-      .input('studentId', sql.Int, studentId)
       .input('sessionId', sql.Int, sessionId)
-      .input('status', sql.NVarChar, 'present')
-      .input('timestamp', sql.DateTime, new Date())
-      .query(`
-        UPDATE attendance_status 
-        SET status = @status, timestamp = @timestamp 
-        WHERE session_id = @sessionId AND student_id = @studentId
-      `);
-    return res.json({ message: 'Attendance confirmed' });
-  }
-  
+      .input('studentId', sql.Int, studentId)
+      .query('SELECT * FROM attendance_status WHERE session_id = @sessionId AND student_id = @studentId');
+
+    if (attendanceResult.recordset.length > 0) {
+      await pool.request()
+        .input('studentId', sql.Int, studentId)
+        .input('sessionId', sql.Int, sessionId)
+        .input('status', sql.NVarChar, 'present')
+        .input('timestamp', sql.DateTime, new Date())
+        .query(`
+          UPDATE attendance_status 
+          SET status = @status, timestamp = @timestamp 
+          WHERE session_id = @sessionId AND student_id = @studentId
+        `);
+      return res.json({ message: 'Attendance confirmed' });
+    } else {
+      return res.status(404).json({ error: 'Attendance record not found' });
+    }
+
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Database error' });
   }
 };
