@@ -136,15 +136,6 @@ const checkAttendance = async (req, res) => {
   try {
     const pool = await sql.connect(config);
 
-    // Verify the student's role
-    const studentRoleCheck = await pool.request()
-      .input('studentId', sql.Int, studentId)
-      .query('SELECT user_role FROM users WHERE id = @studentId');
-
-    if (studentRoleCheck.recordset.length === 0 || studentRoleCheck.recordset[0].user_role !== 'student') {
-      return res.status(403).json({ error: 'Unauthorized: Only students can mark attendance' });
-    }
-
     // Check if session exists and is active
     const sessionResult = await pool.request()
       .input('sessionId', sql.Int, sessionId)
