@@ -176,7 +176,7 @@ router.post('/signup', async (req, res) => {
         request.input('password', sql.VarChar, hashedPassword);
         request.input('user_role', sql.VarChar, role);
         request.input('student_id', sql.Int, student_id || null);
-        request.input('linked_student_id', sql.Int, linked_student_id || null); // Adding linked_student_id here
+        request.input('linked_student_id', sql.Int, linked_student_id || null);
         request.input('year_level', sql.VarChar, year_level || null);
         request.input('courses', sql.VarChar, courses || null);
         request.input('section', sql.VarChar, section || null);
@@ -184,8 +184,8 @@ router.post('/signup', async (req, res) => {
         request.input('gender', sql.VarChar, gender || null);
 
         const query = `
-            INSERT INTO users (full_name, email, password, user_role, student_id, linked_student_id, year_level, courses, section, contact_number, gender)
-            VALUES (@full_name, @email, @password, @user_role, @student_id, @linked_student_id, @year_level, @courses, @section, @contact_number, @gender)
+            INSERT INTO users (full_name, email, password, user_role, student_id, linked_student_id, year_level, courses, section, contact_number, gender, created_at)
+            VALUES (@full_name, @email, @password, @user_role, @student_id, @linked_student_id, @year_level, @courses, @section, @contact_number, @gender, GETDATE())
         `;
 
         // Execute the query
@@ -212,6 +212,7 @@ router.post('/signup', async (req, res) => {
         });
     }
 });
+
 
 router.get('/get_users', async (req, res) => {
     try {
