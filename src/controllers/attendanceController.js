@@ -123,7 +123,8 @@ const checkAttendance = async (req, res) => {
   const parsedQrData = JSON.parse(qrData);
   const sessionId = parseInt(parsedQrData.session_id, 10);
   const expiresAt = new Date(parsedQrData.expiresAt);
-  const maxDistanceKm = 0.1; // Maximum allowed distance in kilometers (e.g., 100 meters)
+  const maxDistanceKm = 0.1; 
+  console.log(req.body);
 
   // Define teacher's default location (latitude and longitude)
   const teacherLat = 15.145370; // Example latitude
