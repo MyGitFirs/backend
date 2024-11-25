@@ -150,15 +150,11 @@ const checkAttendance = async (req, res) => {
       return res.status(404).json({ error: 'Session does not exist or is inactive' });
     }
 
-    // Get the session expiration time (if stored in the database)
     const session = sessionResult.recordset[0];
-    let expiresAt = session.expires_at ? new Date(session.expires_at) : null;
-
-    // Alternatively, calculate expiresAt if it's not stored
-    if (!expiresAt) {
-      const sessionCreatedAt = new Date(session.created_at);
-      expiresAt = new Date(sessionCreatedAt.getTime() + 10 * 60 * 1000); // 10 minutes after creation
-    }
+    const sessionCreatedAt = new Date(session.created_at);
+    const expiresAt = session.expires_at 
+      ? new Date(session.expires_at) 
+      : new Date(sessionCreatedAt.getTime() + 10 * 60 * 1000);
 
     // Check if the session has expired
     if (new Date() > expiresAt) {
@@ -194,9 +190,10 @@ const checkAttendance = async (req, res) => {
     }
   } catch (err) {
     console.error('Database error:', err);
-    res.status(500).json({ error: 'Database error' });
+    return res.status(500).json({ error: 'Database error' });
   }
 };
+
 
 
 
