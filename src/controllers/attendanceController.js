@@ -134,7 +134,7 @@ const checkAttendance = async (req, res) => {
     return res.status(400).json({ error: 'Invalid QR code format' });
   }
 
-  const maxDistanceKm = 0.1;
+  const maxDistanceKm = 0.5;
   const teacherLat = 15.145370; // Example teacher latitude
   const teacherLon = 120.596070; // Example teacher longitude
 
