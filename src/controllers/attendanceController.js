@@ -156,11 +156,6 @@ const checkAttendance = async (req, res) => {
       ? new Date(session.expires_at) 
       : new Date(sessionCreatedAt.getTime() + 10 * 60 * 1000);
 
-    // Check if the session has expired
-    if (new Date() > expiresAt) {
-      return res.status(400).json({ error: 'Session has expired' });
-    }
-
     // Calculate distance between student and teacher
     const distance = haversineDistance(studentLat, studentLon, teacherLat, teacherLon);
     if (distance > maxDistanceKm) {
