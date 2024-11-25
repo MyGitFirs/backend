@@ -120,38 +120,53 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
 
 const checkAttendance = async (req, res) => {
   const { qrData, studentId, studentLat, studentLon } = req.body;
-  const parsedQrData = JSON.parse(qrData);
-  const sessionId = parseInt(parsedQrData.session_id, 10);
-  const expiresAt = new Date(parsedQrData.expiresAt);
-  const maxDistanceKm = 0.1; 
-  console.log(req.body);
 
-  // Define teacher's default location (latitude and longitude)
-  const teacherLat = 15.145370; // Example latitude
-  const teacherLon = 120.596070; // Example longitude
-
-  if (new Date() > expiresAt) {
-    return res.status(400).json({ error: 'QR code expired' });
+  // Parse session_id from `qrData`
+  let sessionId;
+  try {
+    if (qrData.startsWith('{')) {
+      const parsedQrData = JSON.parse(qrData);
+      sessionId = parseInt(parsedQrData.session_id, 10);
+    } else {
+      sessionId = parseInt(qrData, 10); // Treat qrData as plain session ID
+    }
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid QR code format' });
   }
+
+  const maxDistanceKm = 0.1;
+  const teacherLat = 15.145370; // Example teacher latitude
+  const teacherLon = 120.596070; // Example teacher longitude
 
   try {
     const pool = await sql.connect(config);
 
-    // Check if session exists and is active
+    // Retrieve session details
     const sessionResult = await pool.request()
       .input('sessionId', sql.Int, sessionId)
       .query('SELECT * FROM sessions WHERE id = @sessionId AND active = 1');
 
-      if (sessionResult.recordset.length === 0) {
-        if (sessionResult.recordset.active === 0) {
-          return res.status(403).json({ error: 'Session is inactive.' });
-        }
-        return res.status(404).json({ error: 'Session does not exist.' });
-      }      
+    if (sessionResult.recordset.length === 0) {
+      return res.status(404).json({ error: 'Session does not exist or is inactive' });
+    }
 
-    // Calculate the distance between student and teacher
+    // Get the session expiration time (if stored in the database)
+    const session = sessionResult.recordset[0];
+    const expiresAt = session.expires_at ? new Date(session.expires_at) : null;
+
+    // Alternatively, calculate expiresAt if it's not stored
+    if (!expiresAt) {
+      const sessionCreatedAt = new Date(session.created_at);
+      expiresAt = new Date(sessionCreatedAt.getTime() + 10 * 60 * 1000); // 10 minutes after creation
+    }
+
+    // Check if the session has expired
+    if (new Date() > expiresAt) {
+      return res.status(400).json({ error: 'Session has expired' });
+    }
+
+    // Calculate distance between student and teacher
     const distance = haversineDistance(studentLat, studentLon, teacherLat, teacherLon);
-
     if (distance > maxDistanceKm) {
       return res.status(400).json({ error: 'Student is not within the allowed proximity' });
     }
@@ -177,12 +192,12 @@ const checkAttendance = async (req, res) => {
     } else {
       return res.status(404).json({ error: 'Attendance record not found' });
     }
-
   } catch (err) {
-    console.error(err);
+    console.error('Database error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 };
+
 
 
 const getAttendanceByCriteria = async (req, res) => {
