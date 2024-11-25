@@ -73,9 +73,10 @@ const createSession = async (req, res) => {
         .input('sessionId', sql.Int, sessionId)
         .input('date', sql.Date, new Date())
         .input('status', sql.NVarChar, 'absent')
+        .input('timestamp', sql.DateTime, new Date())
         .query(`
-          INSERT INTO attendance_status (student_id, session_id, date, status) 
-          VALUES (@studentId, @sessionId, @date, @status)
+          INSERT INTO attendance_status (student_id, session_id, date, status, timestamp) 
+          VALUES (@studentId, @sessionId, @date, @status, @timestamp)
         `);
     }
 
