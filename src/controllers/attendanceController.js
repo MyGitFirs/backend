@@ -135,8 +135,8 @@ const checkAttendance = async (req, res) => {
   }
 
   const maxDistanceKm = 0.5;
-  const teacherLat = 14.9682232; // Example teacher latitude
-  const teacherLon = 120.5867532; // Example teacher longitude
+  const teacherLat = 15.04158003384158; // Example teacher latitude
+  const teacherLon = 120.6832389006157; // Example teacher longitude
 
   try {
     const pool = await sql.connect(config);
