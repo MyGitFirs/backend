@@ -120,7 +120,7 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
 
 const checkAttendance = async (req, res) => {
   const { qrData, studentId, studentLat, studentLon } = req.body;
-
+  console.log(req.body);
   // Parse session_id from `qrData`
   let sessionId;
   try {
