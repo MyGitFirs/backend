@@ -150,16 +150,6 @@ const checkAttendance = async (req, res) => {
       return res.status(404).json({ error: 'Session does not exist or is inactive.' });
     }
 
-    const session = sessionResult.recordset[0];
-    const sessionCreatedAt = new Date(session.created_at);
-    const expiresAt = session.expires_at 
-      ? new Date(session.expires_at) 
-      : new Date(sessionCreatedAt.getTime() + 10 * 60 * 1000);
-
-    if (Date.now() > expiresAt.getTime()) {
-      return res.status(400).json({ error: 'The session has expired. Please contact the teacher.' });
-    }
-
     // Calculate distance between student and teacher
     const distance = haversineDistance(studentLat, studentLon, teacherLat, teacherLon);
     if (distance > maxDistanceKm) {
