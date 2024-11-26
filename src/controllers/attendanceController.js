@@ -121,7 +121,7 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
 const checkAttendance = async (req, res) => {
   const { qrData, studentId, studentLat, studentLon } = req.body;
   console.log(req.body);
-  // Parse session_id from `qrData`
+
   let sessionId;
   try {
     if (qrData.startsWith('{')) {
@@ -131,7 +131,7 @@ const checkAttendance = async (req, res) => {
       sessionId = parseInt(qrData, 10); // Treat qrData as plain session ID
     }
   } catch (err) {
-    return res.status(400).json({ error: 'Invalid QR code format' });
+    return res.status(400).json({ error: 'Invalid QR code format. Please scan a valid QR code.' });
   }
 
   const maxDistanceKm = 0.5;
@@ -147,7 +147,7 @@ const checkAttendance = async (req, res) => {
       .query('SELECT * FROM sessions WHERE id = @sessionId AND active = 1');
 
     if (sessionResult.recordset.length === 0) {
-      return res.status(404).json({ error: 'Session does not exist or is inactive' });
+      return res.status(404).json({ error: 'Session does not exist or is inactive.' });
     }
 
     const session = sessionResult.recordset[0];
@@ -156,19 +156,24 @@ const checkAttendance = async (req, res) => {
       ? new Date(session.expires_at) 
       : new Date(sessionCreatedAt.getTime() + 10 * 60 * 1000);
 
+    if (Date.now() > expiresAt.getTime()) {
+      return res.status(400).json({ error: 'The session has expired. Please contact the teacher.' });
+    }
+
     // Calculate distance between student and teacher
     const distance = haversineDistance(studentLat, studentLon, teacherLat, teacherLon);
     if (distance > maxDistanceKm) {
-      return res.status(400).json({ error: 'Student is not within the allowed proximity' });
+      return res.status(400).json({ error: 'You are not within the allowed proximity to check in.' });
     }
 
-    // Mark attendance as present
+    // Check if attendance already exists
     const attendanceResult = await pool.request()
       .input('sessionId', sql.Int, sessionId)
       .input('studentId', sql.Int, studentId)
       .query('SELECT * FROM attendance_status WHERE session_id = @sessionId AND student_id = @studentId');
 
     if (attendanceResult.recordset.length > 0) {
+      // Update existing attendance record
       await pool.request()
         .input('studentId', sql.Int, studentId)
         .input('sessionId', sql.Int, sessionId)
@@ -179,13 +184,14 @@ const checkAttendance = async (req, res) => {
           SET status = @status, timestamp = @timestamp 
           WHERE session_id = @sessionId AND student_id = @studentId
         `);
-      return res.json({ message: 'Attendance confirmed' });
+      return res.json({ message: 'Attendance updated successfully.' });
     } else {
-      return res.status(404).json({ error: 'Attendance record not found' });
+      // Attendance not found
+      return res.status(404).json({ error: 'Attendance record not found. Please contact the teacher.' });
     }
   } catch (err) {
-    console.error('Database error:', err);
-    return res.status(500).json({ error: 'Database error' });
+    console.error('Database error:', err.message);
+    return res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
   }
 };
 
