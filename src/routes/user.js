@@ -31,14 +31,6 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Check if user is already logged in
-        if (user.logged_in) {
-            return res.status(403).json({
-                success: false,
-                error: 'User is already logged in on another device.',
-            });
-        }
-
         // Verify the password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
@@ -51,17 +43,6 @@ router.post('/login', async (req, res) => {
         console.log('User role from DB:', user.user_role);
         console.log('Selected role from request:', selectedRole);
     
-        // Verify role with case normalization and trimming
-        if (user.user_role.trim().toLowerCase() !== selectedRole.trim().toLowerCase()) {
-            return res.status(403).json({
-                success: false,
-                error: `Please Select a Role`,
-            });
-        }
-
-        // Set the user as logged in
-        await sql.query`UPDATE users SET logged_in = 1 WHERE email = ${email}`;
-
         // Generate JWT token with full user information
         const token = jwt.sign(
             { 
