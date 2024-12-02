@@ -185,23 +185,20 @@ const checkAttendance = async (req, res) => {
   }
 };
 
-
-
-
-
 const getAttendanceByCriteria = async (req, res) => {
-  const { courses, year_level, section, date } = req.body;
+  const { courses, year_level, section, date, sessionName } = req.body;
   console.log(req.body);
 
   try {
     const pool = await sql.connect(config);
 
-    // Query to get attendance details based on the specified criteria
+    // Query to get attendance details based on the specified criteria, including session name
     const result = await pool.request()
       .input('courses', sql.NVarChar, courses)
       .input('year_level', sql.NVarChar, year_level)
       .input('section', sql.NVarChar, section)
       .input('date', sql.Date, date)
+      .input('sessionName', sql.NVarChar, sessionName)
       .query(`
         SELECT 
           u.id AS user_id,
@@ -211,13 +208,16 @@ const getAttendanceByCriteria = async (req, res) => {
           u.courses,
           a.date,
           a.status,
-          a.timestamp
+          a.timestamp,
+          s.name AS session_name
         FROM attendance_status a
         JOIN users u ON a.student_id = u.id
+        JOIN sessions s ON a.session_id = s.id
         WHERE u.courses = @courses
           AND u.year_level = @year_level
           AND u.section = @section
           AND a.date = @date
+          AND s.name = @sessionName
       `);
 
     if (result.recordset.length > 0) {
@@ -228,7 +228,7 @@ const getAttendanceByCriteria = async (req, res) => {
     } else {
       res.status(404).json({
         success: false,
-        message: 'No attendance records found for the specified criteria.',
+        message: 'No attendance records found for the specified criteria and session name.',
       });
     }
   } catch (error) {
@@ -336,11 +336,42 @@ const getAttendanceBySessionId = async (req, res) => {
   }
 };
 
+const getSessionNames = async (req, res) => {
+  try {
+    const pool = await sql.connect(config);
+
+    // Query to fetch all session names
+    const result = await pool.request().query(`
+      SELECT id AS sessionId, name AS sessionName, date, active 
+      FROM sessions
+      ORDER BY date DESC
+    `);
+
+    if (result.recordset.length > 0) {
+      res.status(200).json({
+        success: true,
+        data: result.recordset,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'No sessions found.',
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching session names:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error. Please try again later.',
+    });
+  }
+};
 
 module.exports = {
     createSession,
     checkAttendance,
     getAttendanceByCriteria,
     getActiveSessionStudents,
-    getAttendanceBySessionId
+    getAttendanceBySessionId,
+    getSessionNames
 };
