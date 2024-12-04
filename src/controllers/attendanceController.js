@@ -105,9 +105,11 @@ const createSession = async (req, res) => {
             UserID: parentId,
             ReminderDate: new Date(),
             IsCompleted: false,
-          };
-          await createReminder({ body: reminderData }, res);
-          }
+        };
+        
+        console.log("Reminder Data:", reminderData); // Inspect the object before sending it
+        await createReminder({ body: reminderData }, res);
+      }        
         } catch (error) {
           console.error(`Error setting session ${sessionId} to inactive:`, error);
       }
@@ -153,7 +155,7 @@ const checkAttendance = async (req, res) => {
     return res.status(400).json({ error: 'Invalid QR code format. Please scan a valid QR code.' });
   }
 
-  const maxDistanceKm = 0.5;
+  const maxDistanceKm = 0.2;
   const teacherLat = 15.04158003384158; // Example teacher latitude
   const teacherLon = 120.6832389006157; // Example teacher longitude
 
