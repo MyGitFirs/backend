@@ -51,81 +51,87 @@ const createSession = async (req, res) => {
     const expirationTime = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
     const qrData = { session_id: sessionId, date: date, expiresAt: expirationTime.toISOString() };
 
-    // Generate QR code as data URL with increased size
-    QRCode.toDataURL(JSON.stringify(qrData), { width: 400, height: 400 }, (err, url) => {
-      if (err) return res.status(500).send('Failed to generate QR code');
-      res.json({ sessionId, qrCode: url });
-    });
+    // Generate QR code and send the response
+    QRCode.toDataURL(JSON.stringify(qrData), { width: 400, height: 400 }, async (err, url) => {
+      if (err) {
+        console.error('Failed to generate QR code:', err);
+        return res.status(500).send('Failed to generate QR code');
+      }
 
-    // Insert initial attendance records for all students in the specified courses, section, and year level
-    const studentsInSection = await pool.request()
-      .input('courses', sql.NVarChar, courses)
-      .input('section', sql.NVarChar, section)
-      .input('year_level', sql.NVarChar, year_level)
-      .query(`
-        SELECT id FROM users 
-        WHERE courses = @courses AND section = @section AND year_level = @year_level
-      `);
+      res.json({ sessionId, qrCode: url }); // Send response here
 
-    for (const student of studentsInSection.recordset) {
-      await pool.request()
-        .input('studentId', sql.Int, student.id)
-        .input('sessionId', sql.Int, sessionId)
-        .input('date', sql.Date, new Date())
-        .input('status', sql.NVarChar, 'absent')
-        .input('timestamp', sql.DateTime, new Date())
-        .query(`
-          INSERT INTO attendance_status (student_id, session_id, date, status, timestamp) 
-          VALUES (@studentId, @sessionId, @date, @status, @timestamp)
-        `);
-    }
-
-    console.log(`Initial attendance records created for session ${sessionId}.`);
-
-    // Set the session to inactive after 10 minutes
-    setTimeout(async () => {
+      // Insert initial attendance records for all students
       try {
-        // Mark the session as inactive
-        await pool.request()
-          .input('sessionId', sql.Int, sessionId)
-          .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
-        console.log(`Session ${sessionId} set to inactive after 10 minutes.`);
-    
-        // Fetch absent students and prepare reminders
-        const absentStudents = await pool.request()
-          .input('sessionId', sql.Int, sessionId)
+        const studentsInSection = await pool.request()
+          .input('courses', sql.NVarChar, courses)
+          .input('section', sql.NVarChar, section)
+          .input('year_level', sql.NVarChar, year_level)
           .query(`
-            SELECT u1.id AS parentId, u2.full_name AS studentName
-            FROM attendance_status a
-            INNER JOIN users u2 ON a.student_id = u2.id
-            INNER JOIN users u1 ON u1.linked_student_id = u2.id
-            WHERE a.session_id = @sessionId AND a.status = 'absent'
+            SELECT id FROM users 
+            WHERE courses = @courses AND section = @section AND year_level = @year_level
           `);
-    
-        for (const { parentId, studentName } of absentStudents.recordset) {
-          // Insert reminder directly into the database
+
+        for (const student of studentsInSection.recordset) {
           await pool.request()
-            .input('Title', sql.NVarChar, `Attendance Update for ${studentName}`)
-            .input('Description', sql.NVarChar, `${studentName} has been marked absent for session: ${sessionName}.`)
-            .input('UserID', sql.Int, parentId)
-            .input('ReminderDate', sql.DateTime, new Date())
-            .input('IsCompleted', sql.Bit, 0)
+            .input('studentId', sql.Int, student.id)
+            .input('sessionId', sql.Int, sessionId)
+            .input('date', sql.Date, new Date())
+            .input('status', sql.NVarChar, 'absent')
+            .input('timestamp', sql.DateTime, new Date())
             .query(`
-              INSERT INTO Reminders (Title, Description, UserID, ReminderDate, IsCompleted)
-              VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
+              INSERT INTO attendance_status (student_id, session_id, date, status, timestamp) 
+              VALUES (@studentId, @sessionId, @date, @status, @timestamp)
             `);
         }
-    
-        console.log(`Reminders created for absent students in session ${sessionId}.`);
-      } catch (error) {
-        console.error(`Error handling reminders for session ${sessionId}:`, error);
+
+        console.log(`Initial attendance records created for session ${sessionId}.`);
+      } catch (attendanceError) {
+        console.error(`Error creating attendance records:`, attendanceError);
       }
-    }, 10 * 1000); // 10 minutes
+
+      // Set the session to inactive after 10 minutes
+      setTimeout(async () => {
+        try {
+          await pool.request()
+            .input('sessionId', sql.Int, sessionId)
+            .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
+          console.log(`Session ${sessionId} set to inactive after 10 minutes.`);
+
+          const absentStudents = await pool.request()
+            .input('sessionId', sql.Int, sessionId)
+            .query(`
+              SELECT u1.id AS parentId, u2.full_name AS studentName
+              FROM attendance_status a
+              INNER JOIN users u2 ON a.student_id = u2.id
+              INNER JOIN users u1 ON u1.linked_student_id = u2.id
+              WHERE a.session_id = @sessionId AND a.status = 'absent'
+            `);
+
+          for (const { parentId, studentName } of absentStudents.recordset) {
+            await pool.request()
+              .input('Title', sql.NVarChar, `Attendance Update for ${studentName}`)
+              .input('Description', sql.NVarChar, `${studentName} has been marked absent for session: ${sessionName}.`)
+              .input('UserID', sql.Int, parentId)
+              .input('ReminderDate', sql.DateTime, new Date())
+              .input('IsCompleted', sql.Bit, 0)
+              .query(`
+                INSERT INTO Reminders (Title, Description, UserID, ReminderDate, IsCompleted)
+                VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
+              `);
+          }
+
+          console.log(`Reminders created for absent students in session ${sessionId}.`);
+        } catch (reminderError) {
+          console.error(`Error handling reminders for session ${sessionId}:`, reminderError);
+        }
+      }, 10 * 60 * 1000); // 10 minutes
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Error creating session');
   }
 };
+
 const addStudentToSession = async (req, res) => {
   const { sessionId, studentId } = req.body;
 
