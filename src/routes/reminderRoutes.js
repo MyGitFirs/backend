@@ -5,7 +5,7 @@ const {
   createReminder,
   updateReminder,
   deleteReminder
-} = require('../controllers/reminder.controller');
+} = require('../controllers/reminderController');
 
 const router = express.Router();
 
