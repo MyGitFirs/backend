@@ -133,8 +133,8 @@ const createSession = async (req, res) => {
 };
 
 const addStudentToSession = async (req, res) => {
+  console.log(req.body);
   const { sessionId, studentId } = req.body;
-
   try {
     const pool = await sql.connect(config);
 
@@ -179,6 +179,7 @@ const addStudentToSession = async (req, res) => {
   }
 };
 const removeStudentFromSession = async (req, res) => {
+  console.log(req.body);
   const { sessionId, studentId } = req.body;
 
   try {
