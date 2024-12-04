@@ -126,6 +126,95 @@ const createSession = async (req, res) => {
     res.status(500).send('Error creating session');
   }
 };
+const addStudentToSession = async (req, res) => {
+  const { sessionId, studentId } = req.body;
+
+  try {
+    const pool = await sql.connect(config);
+
+    // Check if the session exists
+    const sessionCheck = await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .query('SELECT id FROM sessions WHERE id = @sessionId');
+
+    if (sessionCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if the student is already in the session
+    const studentCheck = await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .input('studentId', sql.Int, studentId)
+      .query(`
+        SELECT id FROM attendance_status 
+        WHERE session_id = @sessionId AND student_id = @studentId
+      `);
+
+    if (studentCheck.recordset.length > 0) {
+      return res.status(400).json({ message: 'Student is already in the session' });
+    }
+
+    // Add the student to the session
+    await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .input('studentId', sql.Int, studentId)
+      .input('date', sql.Date, new Date())
+      .input('status', sql.NVarChar, 'absent')
+      .input('timestamp', sql.DateTime, new Date())
+      .query(`
+        INSERT INTO attendance_status (student_id, session_id, date, status, timestamp)
+        VALUES (@studentId, @sessionId, @date, @status, @timestamp)
+      `);
+
+    res.status(201).json({ message: 'Student added to session successfully' });
+  } catch (error) {
+    console.error('Error adding student to session:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+const removeStudentFromSession = async (req, res) => {
+  const { sessionId, studentId } = req.body;
+
+  try {
+    const pool = await sql.connect(config);
+
+    // Check if the session exists
+    const sessionCheck = await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .query('SELECT id FROM sessions WHERE id = @sessionId');
+
+    if (sessionCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if the student is in the session
+    const studentCheck = await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .input('studentId', sql.Int, studentId)
+      .query(`
+        SELECT id FROM attendance_status 
+        WHERE session_id = @sessionId AND student_id = @studentId
+      `);
+
+    if (studentCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Student not found in the session' });
+    }
+
+    // Remove the student from the session
+    await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .input('studentId', sql.Int, studentId)
+      .query(`
+        DELETE FROM attendance_status 
+        WHERE session_id = @sessionId AND student_id = @studentId
+      `);
+
+    res.status(200).json({ message: 'Student removed from session successfully' });
+  } catch (error) {
+    console.error('Error removing student from session:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 
 const haversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -425,5 +514,7 @@ module.exports = {
     getAttendanceByCriteria,
     getActiveSessionStudents,
     getAttendanceBySessionId,
-    getSessionNames
+    getSessionNames,
+    addStudentToSession,
+    removeStudentFromSession
 };

@@ -15,6 +15,9 @@ router.get('/active-session-students/:sessionId', sessionController.getActiveSes
 
 router.get('/session/:sessionId', sessionController.getAttendanceBySessionId);
 
+router.post('/add-student', sessionController.addStudentToSession);
+
+router.post('/remove-student', sessionController.removeStudentFromSession);
 
 router.get('/names', sessionController.getSessionNames);
 module.exports = router;

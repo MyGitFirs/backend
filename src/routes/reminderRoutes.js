@@ -4,7 +4,7 @@ const {
   getRemindersByUserId,
   createReminder,
   updateReminder,
-  deleteReminder
+  deleteReminder,
 } = require('../controllers/reminderController');
 
 const router = express.Router();
@@ -25,5 +25,7 @@ router.put('/update/:id', updateReminder);
 
 // Delete a reminder
 router.delete('/delete/:id', deleteReminder);
+
+
 
 module.exports = router;
