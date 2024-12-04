@@ -1,7 +1,7 @@
 const sql = require('mssql');
 const config = require('../database/database');
 const QRCode = require('qrcode');
-const { createReminder } = require('../controllers/reminderController');
+const { createAttendanceReminder } = require('../controllers/reminderController');
 const generateRandomSessionId = () => {
   return Math.floor(100000 + Math.random() * 900000);
 };
@@ -100,13 +100,13 @@ const createSession = async (req, res) => {
         `);
         for (const { parentId, studentName } of absentStudents.recordset) {
           const reminderData = {
-            userId: parentId,
-            title: "Attendance Notification",
-            message: `Your child, ${studentName}, was marked as absent for session ${sessionId}.`,
-            type: "attendance", // Optional: Specify a type for filtering reminders
-            data: { sessionId, studentName }, // Optional: Additional data if needed
-            };
-            await createReminder(reminderData);
+            Title: `Attendance Update for ${studentName}`,
+            Description: `${studentName} has been marked ${attendanceMessage} for session ID: ${sessionId}.`,
+            UserID: parentId,
+            ReminderDate: new Date(),
+            IsCompleted: false,
+          };
+          await createReminder({ body: reminderData }, res);
           }
         } catch (error) {
           console.error(`Error setting session ${sessionId} to inactive:`, error);
