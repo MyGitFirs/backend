@@ -101,7 +101,7 @@ const createSession = async (req, res) => {
         for (const { parentId, studentName } of absentStudents.recordset) {
           const reminderData = {
             Title: `Attendance Update for ${studentName}`,
-            Description: `${studentName} has been marked ${attendanceMessage} for session ID: ${sessionId}.`,
+            Description: `${studentName} has been marked absent for session ID: ${sessionName}.`,
             UserID: parentId,
             ReminderDate: new Date(),
             IsCompleted: false,
