@@ -35,31 +35,31 @@ const getRemindersByUserId = async (req, res) => {
 };
 
 // Create a new reminder
-const createReminder = async (reminderData) => {
-  const { Title, Description, UserID, ReminderDate, IsCompleted } = reminderData;
+const createReminder = async (req, res) => {
+  console.log(req.body);
+  const { Title, Description, UserID, ReminderDate, IsCompleted } = req.body;
 
   try {
-      const pool = await sql.connect(config);
+    const pool = await sql.connect(config);
 
-      const result = await pool.request()
-          .input('Title', sql.NVarChar, Title)
-          .input('Description', sql.NVarChar, Description)
-          .input('UserID', sql.Int, UserID)
-          .input('ReminderDate', sql.DateTime, ReminderDate)
-          .input('IsCompleted', sql.Bit, IsCompleted || false)
-          .query(`
-              INSERT INTO Reminders (Title, Description, UserID, ReminderDate, IsCompleted)
-              OUTPUT INSERTED.ReminderID
-              VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
-          `);
+    const result = await pool.request()
+      .input('Title', sql.NVarChar, Title)
+      .input('Description', sql.NVarChar, Description)
+      .input('UserID', sql.Int, UserID)
+      .input('ReminderDate', sql.DateTime, ReminderDate)
+      .input('IsCompleted', sql.Bit, IsCompleted || false)
+      .query(`
+        INSERT INTO Reminders (Title, Description, UserID, ReminderDate, IsCompleted)
+        OUTPUT INSERTED.ReminderID
+        VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
+      `);
 
-      return { ReminderID: result.recordset[0].ReminderID, message: 'Reminder created successfully' };
+    res.status(201).json({ ReminderID: result.recordset[0].ReminderID, message: 'Reminder created successfully' });
   } catch (error) {
-      console.error('Error creating reminder:', error);
-      throw new Error('Database error while creating reminder');
+    console.error(error);
+    res.status(500).json({ message: 'Database error' });
   }
 };
-
 
 // Update an existing reminder
 const updateReminder = async (req, res) => {

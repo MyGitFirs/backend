@@ -85,39 +85,42 @@ const createSession = async (req, res) => {
     // Set the session to inactive after 10 minutes
     setTimeout(async () => {
       try {
+        // Mark the session as inactive
+        await pool.request()
+          .input('sessionId', sql.Int, sessionId)
+          .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
+        console.log(`Session ${sessionId} set to inactive after 10 minutes.`);
+    
+        // Fetch absent students and prepare reminders
+        const absentStudents = await pool.request()
+          .input('sessionId', sql.Int, sessionId)
+          .query(`
+            SELECT u1.id AS parentId, u2.full_name AS studentName
+            FROM attendance_status a
+            INNER JOIN users u2 ON a.student_id = u2.id
+            INNER JOIN users u1 ON u1.linked_student_id = u2.id
+            WHERE a.session_id = @sessionId AND a.status = 'absent'
+          `);
+    
+        for (const { parentId, studentName } of absentStudents.recordset) {
+          // Insert reminder directly into the database
           await pool.request()
-              .input('sessionId', sql.Int, sessionId)
-              .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
-          console.log(`Session ${sessionId} set to inactive after 10 minutes.`);
-  
-          // Fetch absent students and send reminders
-          const absentStudents = await pool.request()
-              .input('sessionId', sql.Int, sessionId)
-              .query(`
-                  SELECT u1.id AS parentId, u2.full_name AS studentName
-                  FROM attendance_status a
-                  INNER JOIN users u2 ON a.student_id = u2.id
-                  INNER JOIN users u1 ON u1.linked_student_id = u2.id
-                  WHERE a.session_id = @sessionId AND a.status = 'absent'
-              `);
-  
-          for (const { parentId, studentName } of absentStudents.recordset) {
-              const reminderData = {
-                  Title: `Attendance Update for ${studentName}`,
-                  Description: `${studentName} has been marked absent for session ID: ${sessionName}.`,
-                  UserID: parentId,
-                  ReminderDate: new Date(),
-                  IsCompleted: false,
-              };
-  
-              console.log("Reminder Data:", reminderData); // Inspect the object before sending it
-              await createReminder(reminderData);
-          }
-  
+            .input('Title', sql.NVarChar, `Attendance Update for ${studentName}`)
+            .input('Description', sql.NVarChar, `${studentName} has been marked absent for session: ${sessionName}.`)
+            .input('UserID', sql.Int, parentId)
+            .input('ReminderDate', sql.DateTime, new Date())
+            .input('IsCompleted', sql.Bit, 0)
+            .query(`
+              INSERT INTO Reminders (Title, Description, UserID, ReminderDate, IsCompleted)
+              VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
+            `);
+        }
+    
+        console.log(`Reminders created for absent students in session ${sessionId}.`);
       } catch (error) {
-          console.error(`Error handling reminders for session ${sessionId}:`, error);
+        console.error(`Error handling reminders for session ${sessionId}:`, error);
       }
-  }, 10 * 1000); // 10 minutes  
+    }, 10 * 1000); // 10 minutes
   } catch (err) {
     console.error(err);
     res.status(500).send('Error creating session');
