@@ -1,7 +1,7 @@
 const sql = require('mssql');
 const config = require('../database/database');
 const QRCode = require('qrcode');
-
+const { createReminder } = require('../controllers/reminderController');
 const generateRandomSessionId = () => {
   return Math.floor(100000 + Math.random() * 900000);
 };
@@ -89,8 +89,27 @@ const createSession = async (req, res) => {
           .input('sessionId', sql.Int, sessionId)
           .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
         console.log(`Session ${sessionId} set to inactive after 10 minutes.`);
-      } catch (error) {
-        console.error(`Error setting session ${sessionId} to inactive:`, error);
+        const absentStudents = await pool.request()
+        .input('sessionId', sql.Int, sessionId)
+        .query(`
+          SELECT u1.id AS parentId, u2.full_name AS studentName
+          FROM attendance_status a
+          INNER JOIN users u2 ON a.student_id = u2.id
+          INNER JOIN users u1 ON u1.linked_student_id = u2.id
+          WHERE a.session_id = @sessionId AND a.status = 'absent'
+        `);
+        for (const { parentId, studentName } of absentStudents.recordset) {
+          const reminderData = {
+            userId: parentId,
+            title: "Attendance Notification",
+            message: `Your child, ${studentName}, was marked as absent for session ${sessionId}.`,
+            type: "attendance", // Optional: Specify a type for filtering reminders
+            data: { sessionId, studentName }, // Optional: Additional data if needed
+            };
+            await createReminder(reminderData);
+          }
+        } catch (error) {
+          console.error(`Error setting session ${sessionId} to inactive:`, error);
       }
     }, 10 * 60 * 1000); // 10 minutes in milliseconds
 
@@ -162,6 +181,7 @@ const checkAttendance = async (req, res) => {
       .input('studentId', sql.Int, studentId)
       .query('SELECT * FROM attendance_status WHERE session_id = @sessionId AND student_id = @studentId');
 
+    let attendanceMessage = '';
     if (attendanceResult.recordset.length > 0) {
       // Update existing attendance record
       await pool.request()
@@ -169,16 +189,46 @@ const checkAttendance = async (req, res) => {
         .input('sessionId', sql.Int, sessionId)
         .input('status', sql.NVarChar, 'present')
         .input('timestamp', sql.DateTime, new Date())
-        .query(`
-          UPDATE attendance_status 
-          SET status = @status, timestamp = @timestamp 
-          WHERE session_id = @sessionId AND student_id = @studentId
-        `);
-      return res.json({ message: 'Attendance updated successfully.' });
+        .query(
+          `UPDATE attendance_status 
+           SET status = @status, timestamp = @timestamp 
+           WHERE session_id = @sessionId AND student_id = @studentId`
+        );
+
+      attendanceMessage = 'present';
     } else {
-      // Attendance not found
       return res.status(404).json({ error: 'Attendance record not found. Please contact the teacher.' });
     }
+
+    // Retrieve parent's ID linked to the student
+    const parentResult = await pool.request()
+      .input('studentId', sql.Int, studentId)
+      .query(`
+        SELECT u1.id AS parentId, u2.full_name AS studentName
+        FROM users u1
+        INNER JOIN users u2 ON u1.linked_student_id = u2.id
+        WHERE u2.id = @studentId AND u1.user_role = 'parent'
+      `);
+
+    if (parentResult.recordset.length === 0) {
+      console.error(`No parent found for student ID: ${studentId}`);
+      return res.status(200).json({ message: 'Attendance updated, but no parent notification sent.' });
+    }
+
+    const { parentId, studentName } = parentResult.recordset[0];
+
+    // Create a reminder/notification for the parent
+    const reminderData = {
+      Title: `Attendance Update for ${studentName}`,
+      Description: `${studentName} has been marked ${attendanceMessage} for session ID: ${sessionId}.`,
+      UserID: parentId,
+      ReminderDate: new Date(),
+      IsCompleted: false,
+    };
+
+    await createReminder({ body: reminderData }, res);
+
+    res.json({ message: `Attendance updated and notification sent to the parent of ${studentName}.` });
   } catch (err) {
     console.error('Database error:', err.message);
     return res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
@@ -186,7 +236,7 @@ const checkAttendance = async (req, res) => {
 };
 
 const getAttendanceByCriteria = async (req, res) => {
-  const {  date, sessionName } = req.body;
+  const { date, sessionName } = req.body;
   console.log(req.body);
 
   try {
