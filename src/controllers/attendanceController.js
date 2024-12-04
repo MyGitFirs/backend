@@ -1,7 +1,7 @@
 const sql = require('mssql');
 const config = require('../database/database');
 const QRCode = require('qrcode');
-const { createAttendanceReminder } = require('../controllers/reminderController');
+const { createReminder } = require('../controllers/reminderController');
 const generateRandomSessionId = () => {
   return Math.floor(100000 + Math.random() * 900000);
 };
