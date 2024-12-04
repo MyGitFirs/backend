@@ -113,7 +113,7 @@ const createSession = async (req, res) => {
         } catch (error) {
           console.error(`Error setting session ${sessionId} to inactive:`, error);
       }
-    }, 10 * 60 * 1000); // 10 minutes in milliseconds
+    }, 10 * 1000);
 
   } catch (err) {
     console.error(err);
