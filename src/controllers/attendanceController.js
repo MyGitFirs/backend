@@ -133,8 +133,8 @@ const createSession = async (req, res) => {
 };
 
 const addStudentToSession = async (req, res) => {
-  console.log(req.body);
   const { sessionId, studentId } = req.body;
+  console.log(sessionId);
   try {
     const pool = await sql.connect(config);
 
