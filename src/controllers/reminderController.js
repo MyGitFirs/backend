@@ -37,6 +37,7 @@ const getRemindersByUserId = async (req, res) => {
 // Create a new reminder
 const createReminder = async (req, res) => {
   const { Title, Description, UserID, ReminderDate, IsCompleted } = req.body;
+  console.log(req.body);
 
   try {
     const pool = await sql.connect(config);
