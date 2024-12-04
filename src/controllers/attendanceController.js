@@ -186,7 +186,7 @@ const checkAttendance = async (req, res) => {
 };
 
 const getAttendanceByCriteria = async (req, res) => {
-  const { courses, year_level, section, date, sessionName } = req.body;
+  const {  date, sessionName } = req.body;
   console.log(req.body);
 
   try {
@@ -194,9 +194,6 @@ const getAttendanceByCriteria = async (req, res) => {
 
     // Query to get attendance details based on the specified criteria, including session name
     const result = await pool.request()
-      .input('courses', sql.NVarChar, courses)
-      .input('year_level', sql.NVarChar, year_level)
-      .input('section', sql.NVarChar, section)
       .input('date', sql.Date, date)
       .input('sessionName', sql.NVarChar, sessionName)
       .query(`
@@ -213,10 +210,7 @@ const getAttendanceByCriteria = async (req, res) => {
         FROM attendance_status a
         JOIN users u ON a.student_id = u.id
         JOIN sessions s ON a.session_id = s.id
-        WHERE u.courses = @courses
-          AND u.year_level = @year_level
-          AND u.section = @section
-          AND a.date = @date
+        WHERE a.date = @date
           AND s.name = @sessionName
       `);
 
