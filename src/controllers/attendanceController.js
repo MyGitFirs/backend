@@ -330,7 +330,13 @@ const checkAttendance = async (req, res) => {
       IsCompleted: false,
     };
 
-    await createReminder({ body: reminderData }, res);
+    // Call createReminder and handle it without sending a separate response
+    const reminderResult = await createReminder(reminderData);
+
+    if (reminderResult.error) {
+      console.error('Error creating reminder:', reminderResult.error);
+      return res.status(500).json({ error: 'Attendance updated, but failed to notify the parent.' });
+    }
 
     res.json({ message: `Attendance updated and notification sent to the parent of ${studentName}.` });
   } catch (err) {
@@ -338,6 +344,7 @@ const checkAttendance = async (req, res) => {
     return res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
   }
 };
+
 
 const getAttendanceByCriteria = async (req, res) => {
   const { date, sessionName } = req.body;
