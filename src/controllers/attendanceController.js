@@ -241,6 +241,29 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // Distance in kilometers
 };
 
+// Utility function to create a reminder
+const createReminder = async (reminderData) => {
+  try {
+    const pool = await sql.connect(config);
+    const result = await pool.request()
+      .input('Title', sql.NVarChar, reminderData.Title)
+      .input('Description', sql.NVarChar, reminderData.Description)
+      .input('UserID', sql.Int, reminderData.UserID)
+      .input('ReminderDate', sql.DateTime, reminderData.ReminderDate)
+      .input('IsCompleted', sql.Bit, reminderData.IsCompleted)
+      .query(`
+        INSERT INTO reminders (Title, Description, UserID, ReminderDate, IsCompleted) 
+        OUTPUT INSERTED.ReminderID
+        VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
+      `);
+
+    return { success: true, reminderId: result.recordset[0].ReminderID };
+  } catch (error) {
+    console.error('Error creating reminder:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 const checkAttendance = async (req, res) => {
   const { qrData, studentId, studentLat, studentLon } = req.body;
   console.log(req.body);
@@ -258,8 +281,8 @@ const checkAttendance = async (req, res) => {
   }
 
   const maxDistanceKm = 0.2;
-  const teacherLat = 15.04158003384158; // Example teacher latitude
-  const teacherLon = 120.6832389006157; // Example teacher longitude
+  const teacherLat = 15.04158003384158;
+  const teacherLon = 120.6832389006157;
 
   try {
     const pool = await sql.connect(config);
@@ -273,13 +296,13 @@ const checkAttendance = async (req, res) => {
       return res.status(404).json({ error: 'Session does not exist or is inactive.' });
     }
 
-    // Calculate distance between student and teacher
+    // Calculate distance
     const distance = haversineDistance(studentLat, studentLon, teacherLat, teacherLon);
     if (distance > maxDistanceKm) {
       return res.status(400).json({ error: 'You are not within the allowed proximity to check in.' });
     }
 
-    // Check if attendance already exists
+    // Check existing attendance
     const attendanceResult = await pool.request()
       .input('sessionId', sql.Int, sessionId)
       .input('studentId', sql.Int, studentId)
@@ -287,24 +310,24 @@ const checkAttendance = async (req, res) => {
 
     let attendanceMessage = '';
     if (attendanceResult.recordset.length > 0) {
-      // Update existing attendance record
+      // Update attendance
       await pool.request()
         .input('studentId', sql.Int, studentId)
         .input('sessionId', sql.Int, sessionId)
         .input('status', sql.NVarChar, 'present')
         .input('timestamp', sql.DateTime, new Date())
-        .query(
-          `UPDATE attendance_status 
-           SET status = @status, timestamp = @timestamp 
-           WHERE session_id = @sessionId AND student_id = @studentId`
-        );
+        .query(`
+          UPDATE attendance_status 
+          SET status = @status, timestamp = @timestamp 
+          WHERE session_id = @sessionId AND student_id = @studentId
+        `);
 
       attendanceMessage = 'present';
     } else {
       return res.status(404).json({ error: 'Attendance record not found. Please contact the teacher.' });
     }
 
-    // Retrieve parent's ID linked to the student
+    // Retrieve parent's ID
     const parentResult = await pool.request()
       .input('studentId', sql.Int, studentId)
       .query(`
@@ -321,7 +344,7 @@ const checkAttendance = async (req, res) => {
 
     const { parentId, studentName } = parentResult.recordset[0];
 
-    // Create a reminder/notification for the parent
+    // Prepare reminder data
     const reminderData = {
       Title: `Attendance Update for ${studentName}`,
       Description: `${studentName} has been marked ${attendanceMessage} for session ID: ${sessionId}.`,
@@ -330,10 +353,10 @@ const checkAttendance = async (req, res) => {
       IsCompleted: false,
     };
 
-    // Call createReminder and handle it without sending a separate response
+    // Create reminder
     const reminderResult = await createReminder(reminderData);
 
-    if (reminderResult.error) {
+    if (!reminderResult.success) {
       console.error('Error creating reminder:', reminderResult.error);
       return res.status(500).json({ error: 'Attendance updated, but failed to notify the parent.' });
     }

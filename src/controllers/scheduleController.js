@@ -155,9 +155,9 @@ const getScheduleBySectionAndYearLevel = async (req, res) => {
 };
 
 // Create a new schedule
+// Create a new schedule
 const createSchedule = async (req, res) => {
   const { SubjectCode, SubjectName, InstructorID, YearLevel, Courses, Section, DayOfWeek, StartTime, EndTime, Room } = req.body;
-  console.log(req.body);
 
   try {
     const pool = await sql.connect(config);
@@ -171,7 +171,27 @@ const createSchedule = async (req, res) => {
       return res.status(400).json({ message: 'Subject code already exists. Please use a unique subject code.' });
     }
 
-    // Proceed to insert the schedule if SubjectCode is unique
+    // Check for schedule conflicts
+    const conflictCheck = await pool.request()
+      .input('InstructorID', sql.Int, InstructorID)
+      .input('DayOfWeek', sql.NVarChar, DayOfWeek)
+      .input('StartTime', sql.VarChar, StartTime)
+      .input('EndTime', sql.VarChar, EndTime)
+      .query(`
+        SELECT COUNT(*) AS conflictCount
+        FROM Schedules
+        WHERE InstructorID = @InstructorID
+          AND DayOfWeek = @DayOfWeek
+          AND (
+            (StartTime < @EndTime AND EndTime > @StartTime) -- Overlapping time
+          )
+      `);
+
+    if (conflictCheck.recordset[0].conflictCount > 0) {
+      return res.status(400).json({ message: 'Schedule conflict detected. The instructor already has a schedule during this time.' });
+    }
+
+    // Proceed to insert the schedule if no conflicts
     const result = await pool.request()
       .input('SubjectCode', sql.NVarChar, SubjectCode)
       .input('SubjectName', sql.NVarChar, SubjectName)
@@ -195,6 +215,7 @@ const createSchedule = async (req, res) => {
     res.status(500).json({ message: 'Database error' });
   }
 };
+
 
 
 // Update an existing schedule
