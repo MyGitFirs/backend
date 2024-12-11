@@ -12,7 +12,28 @@ const getAllReminders = async (req, res) => {
     res.status(500).json({ message: 'Database error' });
   }
 };
+const createReminderBackend = async (reminderData) => {
+  try {
+    const pool = await sql.connect(config);
 
+    const result = await pool.request()
+      .input('Title', sql.NVarChar, reminderData.Title)
+      .input('Description', sql.NVarChar, reminderData.Description)
+      .input('UserID', sql.Int, reminderData.UserID)
+      .input('ReminderDate', sql.DateTime, reminderData.ReminderDate)
+      .input('IsCompleted', sql.Bit, reminderData.IsCompleted)
+      .query(`
+        INSERT INTO reminders (Title, Description, UserID, ReminderDate, IsCompleted) 
+        OUTPUT INSERTED.ReminderID
+        VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
+      `);
+
+    return { success: true, reminderId: result.recordset[0].ReminderID };
+  } catch (error) {
+    console.error('Error creating reminder:', error.message);
+    return { success: false, error: error.message };
+  }
+};
 // Get reminders by user ID
 const getRemindersByUserId = async (req, res) => {
   const { userId } = req.params;
@@ -134,4 +155,5 @@ module.exports = {
   createReminder,
   updateReminder,
   deleteReminder,
+  createReminderBackend
 };

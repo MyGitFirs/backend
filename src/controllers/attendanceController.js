@@ -1,7 +1,7 @@
 const sql = require('mssql');
 const config = require('../database/database');
 const QRCode = require('qrcode');
-const { createReminder } = require('../controllers/reminderController');
+const { createReminderBackend } = require('../controllers/reminderController');
 const generateRandomSessionId = () => {
   return Math.floor(100000 + Math.random() * 900000);
 };
@@ -96,7 +96,7 @@ const createSession = async (req, res) => {
             .input('sessionId', sql.Int, sessionId)
             .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
           console.log(`Session ${sessionId} set to inactive after 10 minutes.`);
-
+      
           const absentStudents = await pool.request()
             .input('sessionId', sql.Int, sessionId)
             .query(`
@@ -106,25 +106,27 @@ const createSession = async (req, res) => {
               INNER JOIN users u1 ON u1.linked_student_id = u2.id
               WHERE a.session_id = @sessionId AND a.status = 'absent'
             `);
-
+      
           for (const { parentId, studentName } of absentStudents.recordset) {
-            await pool.request()
-              .input('Title', sql.NVarChar, `Attendance Update for ${studentName}`)
-              .input('Description', sql.NVarChar, `${studentName} has been marked absent for session: ${sessionName}.`)
-              .input('UserID', sql.Int, parentId)
-              .input('ReminderDate', sql.DateTime, new Date())
-              .input('IsCompleted', sql.Bit, 0)
-              .query(`
-                INSERT INTO Reminders (Title, Description, UserID, ReminderDate, IsCompleted)
-                VALUES (@Title, @Description, @UserID, @ReminderDate, @IsCompleted)
-              `);
+            const reminderData = {
+              Title: `Attendance Update for ${studentName}`,
+              Description: `${studentName} has been marked absent for session: ${sessionName}.`,
+              UserID: parentId,
+              ReminderDate: new Date(),
+              IsCompleted: false,
+            };
+      
+            const reminderResponse = await createReminderBackend(reminderData);
+            if (!reminderResponse.success) {
+              console.error(`Failed to create reminder for parent ID: ${parentId}`, reminderResponse.error);
+            }
           }
-
+      
           console.log(`Reminders created for absent students in session ${sessionId}.`);
         } catch (reminderError) {
           console.error(`Error handling reminders for session ${sessionId}:`, reminderError);
         }
-      }, 10 * 60 * 1000); // 10 minutes
+      }, 10 * 60 * 1000);      
     });
   } catch (err) {
     console.error(err);
@@ -354,7 +356,7 @@ const checkAttendance = async (req, res) => {
     };
 
     // Create reminder
-    const reminderResult = await createReminder(reminderData);
+    const reminderResult = await createReminderBackend(reminderData);
 
     if (!reminderResult.success) {
       console.error('Error creating reminder:', reminderResult.error);
