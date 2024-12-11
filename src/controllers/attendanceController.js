@@ -453,7 +453,7 @@ const getActiveSessionStudents = async (req, res) => {
         JOIN users u ON a.student_id = u.id
         WHERE a.session_id = @sessionId
       `);
-
+    console.log('Query Result:', result.recordset);
     if (studentsResult.recordset.length > 0) {
       res.status(200).json({
         success: true,
