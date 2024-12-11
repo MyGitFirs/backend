@@ -372,15 +372,16 @@ const checkAttendance = async (req, res) => {
 
 
 const getAttendanceByCriteria = async (req, res) => {
-  const { date, sessionName } = req.body;
+  const { startDate, endDate, sessionName } = req.body;
   console.log(req.body);
 
   try {
     const pool = await sql.connect(config);
 
-    // Query to get attendance details based on the specified criteria, including session name
+    // Query to get attendance details based on date range and session name
     const result = await pool.request()
-      .input('date', sql.Date, date)
+      .input('startDate', sql.Date, startDate)
+      .input('endDate', sql.Date, endDate)
       .input('sessionName', sql.NVarChar, sessionName)
       .query(`
         SELECT 
@@ -396,7 +397,7 @@ const getAttendanceByCriteria = async (req, res) => {
         FROM attendance_status a
         JOIN users u ON a.student_id = u.id
         JOIN sessions s ON a.session_id = s.id
-        WHERE a.date = @date
+        WHERE a.date BETWEEN @startDate AND @endDate
           AND s.name = @sessionName
       `);
 
@@ -419,6 +420,7 @@ const getAttendanceByCriteria = async (req, res) => {
     });
   }
 };
+
 
 const getActiveSessionStudents = async (req, res) => {
   const { sessionId } = req.params;
