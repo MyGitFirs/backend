@@ -155,44 +155,62 @@ const getScheduleBySectionAndYearLevel = async (req, res) => {
 };
 
 // Create a new schedule
-// Create a new schedule
 const createSchedule = async (req, res) => {
-  const { SubjectCode, SubjectName, InstructorID, YearLevel, Courses, Section, DayOfWeek, StartTime, EndTime, Room } = req.body;
+  const { 
+    SubjectCode, 
+    SubjectName, 
+    InstructorID, 
+    YearLevel, 
+    Courses, 
+    Section, 
+    DayOfWeek, 
+    StartTime, 
+    EndTime, 
+    Room 
+  } = req.body;
 
   try {
     const pool = await sql.connect(config);
 
     // Check if SubjectCode already exists
-    const existingSubjectCode = await pool.request()
+    const { recordset: subjectCheck } = await pool.request()
       .input('SubjectCode', sql.NVarChar, SubjectCode)
-      .query(`SELECT COUNT(*) AS count FROM Schedules WHERE SubjectCode = @SubjectCode`);
+      .query(`
+        SELECT COUNT(*) AS Count 
+        FROM Schedules 
+        WHERE SubjectCode = @SubjectCode
+      `);
 
-    if (existingSubjectCode.recordset[0].count > 0) {
-      return res.status(400).json({ message: 'Subject code already exists. Please use a unique subject code.' });
+    if (subjectCheck[0].Count > 0) {
+      return res.status(400).json({ 
+        message: 'Subject code already exists. Please use a unique subject code.' 
+      });
     }
 
     // Check for schedule conflicts
-    const conflictCheck = await pool.request()
-    .input('InstructorID', sql.Int, InstructorID)
-    .input('DayOfWeek', sql.NVarChar, DayOfWeek)
-    .input('StartTime', sql.Time, StartTime)
-    .input('EndTime', sql.Time, EndTime)
-    .query(`
-      SELECT COUNT(*) AS conflictCount
-      FROM Schedules
-      WHERE InstructorID = @InstructorID
-        AND DayOfWeek = @DayOfWeek
-        AND NOT (
-          EndTime <= @StartTime OR StartTime >= @EndTime
-        )
-    `);  
+    const { recordset: conflictCheck } = await pool.request()
+      .input('InstructorID', sql.Int, InstructorID)
+      .input('DayOfWeek', sql.NVarChar, DayOfWeek)
+      .input('StartTime', sql.Time, StartTime)
+      .input('EndTime', sql.Time, EndTime)
+      .query(`
+        SELECT COUNT(*) AS ConflictCount
+        FROM Schedules
+        WHERE InstructorID = @InstructorID
+          AND DayOfWeek = @DayOfWeek
+          AND NOT (
+            EndTime <= @StartTime OR StartTime >= @EndTime
+          )
+      `);
 
-    if (conflictCheck.recordset[0].conflictCount > 0) {
-      return res.status(400).json({ message: 'Schedule conflict detected. The instructor already has a schedule during this time.' });
+    if (conflictCheck[0].ConflictCount > 0) {
+      return res.status(400).json({ 
+        message: 'Schedule conflict detected. The instructor already has a schedule during this time.' 
+      });
     }
 
-    // Proceed to insert the schedule if no conflicts
-    const result = await pool.request()
+    // Insert the new schedule
+    const { recordset: insertResult } = await pool.request()
       .input('SubjectCode', sql.NVarChar, SubjectCode)
       .input('SubjectName', sql.NVarChar, SubjectName)
       .input('InstructorID', sql.Int, InstructorID)
@@ -200,19 +218,28 @@ const createSchedule = async (req, res) => {
       .input('Courses', sql.NVarChar, Courses)
       .input('Section', sql.NVarChar, Section)
       .input('DayOfWeek', sql.NVarChar, DayOfWeek)
-      .input('StartTime', sql.VarChar, StartTime)
-      .input('EndTime', sql.VarChar, EndTime)
+      .input('StartTime', sql.Time, StartTime)
+      .input('EndTime', sql.Time, EndTime)
       .input('Room', sql.NVarChar, Room)
       .query(`
-        INSERT INTO Schedules (SubjectCode, SubjectName, InstructorID, YearLevel, Courses, Section, DayOfWeek, StartTime, EndTime, Room) 
+        INSERT INTO Schedules (
+          SubjectCode, SubjectName, InstructorID, YearLevel, 
+          Courses, Section, DayOfWeek, StartTime, EndTime, Room
+        ) 
         OUTPUT INSERTED.ScheduleID 
-        VALUES (@SubjectCode, @SubjectName, @InstructorID, @YearLevel, @Courses, @Section, @DayOfWeek, @StartTime, @EndTime, @Room)
+        VALUES (
+          @SubjectCode, @SubjectName, @InstructorID, @YearLevel, 
+          @Courses, @Section, @DayOfWeek, @StartTime, @EndTime, @Room
+        )
       `);
 
-    res.status(201).json({ ScheduleID: result.recordset[0].ScheduleID, message: 'Schedule created successfully' });
+    res.status(201).json({ 
+      ScheduleID: insertResult[0].ScheduleID, 
+      message: 'Schedule created successfully.' 
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Database error' });
+    console.error('Database error:', error);
+    res.status(500).json({ message: 'An error occurred while creating the schedule.' });
   }
 };
 
