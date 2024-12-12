@@ -453,7 +453,8 @@ const getActiveSessionStudents = async (req, res) => {
         JOIN users u ON a.student_id = u.id
         WHERE a.session_id = @sessionId
       `);
-    console.log('Query Result:', result.recordset);
+
+    console.log('Query Result:', studentsResult.recordset); // Correct variable name
     if (studentsResult.recordset.length > 0) {
       res.status(200).json({
         success: true,
@@ -467,12 +468,10 @@ const getActiveSessionStudents = async (req, res) => {
     }
   } catch (error) {
     console.error('Error fetching students for the active session:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error. Please try again later.',
-    });
+    res.status(500).json({ error: 'Internal server error.' });
   }
 };
+
 
 const getAttendanceBySessionId = async (req, res) => {
   const { sessionId } = req.params;

@@ -284,11 +284,11 @@ const updateSchedule = async (req, res) => {
     }
     if (StartTime) {
       setClauses.push('StartTime = @StartTime');
-      request.input('StartTime', sql.VarChar, StartTime);
+      request.input('StartTime', sql.Time, StartTime);
     }
     if (EndTime) {
       setClauses.push('EndTime = @EndTime');
-      request.input('EndTime', sql.VarChar, EndTime);
+      request.input('EndTime', sql.Time, EndTime);
     }
     if (Room) { // Add Room field if it is present
       setClauses.push('Room = @Room');
