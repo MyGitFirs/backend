@@ -92,12 +92,23 @@ const createSession = async (req, res) => {
       // Set the session to inactive after 10 minutes
       setTimeout(async () => {
         try {
-          await pool.request()
-            .input('sessionId', sql.Int, sessionId)
-            .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
-          console.log(`Session ${sessionId} set to inactive after 10 minutes.`);
+          const transaction = new sql.Transaction(pool);
       
-          const absentStudents = await pool.request()
+          await transaction.begin();
+      
+          // Update the session status
+          await transaction.request()
+            .input('sessionId', sql.Int, sessionId)
+            .query(`
+              UPDATE sessions 
+              SET active = 0, is_recorded = 1 
+              WHERE id = @sessionId
+            `);
+      
+          console.log(`Session ${sessionId} set to inactive and recorded after 10 minutes.`);
+      
+          // Fetch absent students and notify their parents
+          const absentStudents = await transaction.request()
             .input('sessionId', sql.Int, sessionId)
             .query(`
               SELECT u1.id AS parentId, u2.full_name AS studentName
@@ -122,9 +133,12 @@ const createSession = async (req, res) => {
             }
           }
       
+          await transaction.commit();
+      
           console.log(`Reminders created for absent students in session ${sessionId}.`);
         } catch (reminderError) {
           console.error(`Error handling reminders for session ${sessionId}:`, reminderError);
+          if (transaction) await transaction.rollback();
         }
       }, 10 * 60 * 1000);      
     });
