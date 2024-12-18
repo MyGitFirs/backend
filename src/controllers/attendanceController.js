@@ -133,6 +133,28 @@ const createSession = async (req, res) => {
     res.status(500).send('Error creating session');
   }
 };
+const endSession = async (req, res) => {
+  const { sessionId } = req.body;
+
+  try {
+    const pool = await sql.connect(config);
+
+    await pool.request()
+      .input('sessionId', sql.Int, sessionId)
+      .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
+
+    // Cancel the timer if it's active
+    if (timers[sessionId]) {
+      clearTimeout(timers[sessionId]);
+      delete timers[sessionId];
+    }
+
+    res.send(`Session ${sessionId} has been terminated.`);
+  } catch (err) {
+    console.error(`Error ending session ${sessionId}:`, err);
+    res.status(500).send('Failed to end session');
+  }
+};
 
 const addStudentToSession = async (req, res) => {
   const { sessionId, studentId } = req.body;
@@ -556,5 +578,6 @@ module.exports = {
     getAttendanceBySessionId,
     getSessionNames,
     addStudentToSession,
-    removeStudentFromSession
+    removeStudentFromSession,
+    endSession
 };

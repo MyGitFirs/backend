@@ -20,4 +20,7 @@ router.post('/add-student', sessionController.addStudentToSession);
 router.post('/remove-student', sessionController.removeStudentFromSession);
 
 router.get('/names', sessionController.getSessionNames);
+
+router.post('/end-session', sessionController.endSession);
+
 module.exports = router;
