@@ -2,6 +2,7 @@ const sql = require('mssql');
 const config = require('../database/database');
 const QRCode = require('qrcode');
 const { createReminderBackend } = require('../controllers/reminderController');
+const timers = {};
 const generateRandomSessionId = () => {
   return Math.floor(100000 + Math.random() * 900000);
 };
@@ -90,7 +91,7 @@ const createSession = async (req, res) => {
       }
 
       // Set the session to inactive after 10 minutes
-      setTimeout(async () => {
+      const timeoutId = setTimeout(async () => {
         try {
           const transaction = new sql.Transaction(pool);
       
@@ -136,11 +137,17 @@ const createSession = async (req, res) => {
           await transaction.commit();
       
           console.log(`Reminders created for absent students in session ${sessionId}.`);
-        } catch (reminderError) {
+        }
+         catch (reminderError) {
           console.error(`Error handling reminders for session ${sessionId}:`, reminderError);
           if (transaction) await transaction.rollback();
         }
-      }, 10 * 60 * 1000);      
+        finally {
+          delete timers[sessionId]; // Cleanup after execution
+        }
+      }, 10 * 60 * 1000);
+
+      timers[sessionId] = timeoutId;
     });
   } catch (err) {
     console.error(err);
@@ -159,8 +166,8 @@ const endSession = async (req, res) => {
 
     // Cancel the timer if it's active
     if (timers[sessionId]) {
-      clearTimeout(timers[sessionId]);
-      delete timers[sessionId];
+      clearTimeout(timers[sessionId]); // Cancel the timer
+      delete timers[sessionId]; // Remove from storage
     }
 
     res.send(`Session ${sessionId} has been terminated.`);
@@ -169,6 +176,7 @@ const endSession = async (req, res) => {
     res.status(500).send('Failed to end session');
   }
 };
+
 
 const addStudentToSession = async (req, res) => {
   const { sessionId, studentId } = req.body;
