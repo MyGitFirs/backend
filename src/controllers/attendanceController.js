@@ -443,6 +443,7 @@ const getAttendanceByCriteria = async (req, res) => {
         JOIN sessions s ON a.session_id = s.id
         WHERE a.date BETWEEN @startDate AND @endDate
           AND s.name = @sessionName
+          AND s.is_recorded = 1
       `);
 
     if (result.recordset.length > 0) {
