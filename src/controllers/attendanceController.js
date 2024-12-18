@@ -110,7 +110,7 @@ const createSession = async (req, res) => {
           for (const { parentId, studentName } of absentStudents.recordset) {
             const reminderData = {
               Title: `Attendance Update for ${studentName}`,
-              Description: `${studentName} has been marked absent for session: ${sessionName}.`,
+              Description: `${studentName} has been marked absent for subject ${sessionName}.`,
               UserID: parentId,
               ReminderDate: new Date(),
               IsCompleted: false,
@@ -349,7 +349,7 @@ const checkAttendance = async (req, res) => {
     // Prepare reminder data
     const reminderData = {
       Title: `Attendance Update for ${studentName}`,
-      Description: `${studentName} has been marked ${attendanceMessage} for session ID: ${sessionId}.`,
+      Description: `${studentName} has been marked ${attendanceMessage} for subject ${sessionName}.`,
       UserID: parentId,
       ReminderDate: new Date(),
       IsCompleted: false,
