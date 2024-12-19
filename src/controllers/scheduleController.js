@@ -245,28 +245,23 @@ const createSchedule = async (req, res) => {
 
 
 
-// Update an existing schedule
 const updateSchedule = async (req, res) => {
   const { id } = req.params;
   const { SubjectCode, SubjectName, InstructorName, StartTime, EndTime, Room } = req.body;
-  const validateTimeFormat = (time) => {
-    const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i;
-    return timeRegex.test(time);
-  };
 
   const convertTo24HourFormat = (time12h) => {
     const [time, modifier] = time12h.split(' ');
     let [hours, minutes] = time.split(':').map(Number);
-  
+
     if (modifier.toUpperCase() === 'PM' && hours !== 12) hours += 12;
     if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
-  
+
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`; // Ensure HH:MM:SS format
   };
-  
+
+  let startTime24, endTime24; // Define variables outside blocks
 
   try {
-
     const pool = await sql.connect(config);
     const request = pool.request();
     request.input('ScheduleID', sql.Int, id);
@@ -285,17 +280,17 @@ const updateSchedule = async (req, res) => {
       request.input('InstructorName', sql.NVarChar, InstructorName);
     }
     if (StartTime) {
-      const startTime24 = convertTo24HourFormat(StartTime);
+      startTime24 = convertTo24HourFormat(StartTime);
       console.log('Converted StartTime:', startTime24); // Logs HH:MM:SS
       setClauses.push('StartTime = @StartTime');
       request.input('StartTime', sql.Time, startTime24); // TIME expects HH:MM:SS
     }
     if (EndTime) {
-      const endTime24 = convertTo24HourFormat(EndTime);
+      endTime24 = convertTo24HourFormat(EndTime);
       console.log('Converted EndTime:', endTime24); // Logs HH:MM:SS
       setClauses.push('EndTime = @EndTime');
       request.input('EndTime', sql.Time, endTime24); // TIME expects HH:MM:SS
-    }    
+    }
     if (Room) {
       setClauses.push('Room = @Room');
       request.input('Room', sql.NVarChar, Room);
@@ -307,7 +302,7 @@ const updateSchedule = async (req, res) => {
 
     const query = `UPDATE Schedules SET ${setClauses.join(', ')} WHERE ScheduleID = @ScheduleID`;
     console.log('Generated Query:', query);
-    console.log('Parameters:', { StartTime: startTime24, EndTime: endTime24 });
+    console.log('Parameters:', { StartTime: startTime24 || 'N/A', EndTime: endTime24 || 'N/A' });
 
     const result = await request.query(query);
 
@@ -323,13 +318,14 @@ const updateSchedule = async (req, res) => {
       errorMessage: error.message,
       stack: error.stack,
     });
-  
+
     if (error.code === 'EPARAM') {
       return res.status(400).json({ message: `Invalid parameter: ${error.message}` });
     }
     res.status(500).json({ message: 'An error occurred while updating the schedule.' });
-  }  
+  }
 };
+
 
 
 
