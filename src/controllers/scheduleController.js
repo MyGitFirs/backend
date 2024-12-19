@@ -250,27 +250,34 @@ const updateSchedule = async (req, res) => {
   const { id } = req.params;
   const { SubjectCode, SubjectName, InstructorName, StartTime, EndTime, Room } = req.body;
 
-  // Helper function to convert 12-hour time to 24-hour format
+  const validateTimeFormat = (time) => {
+    const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i;
+    return timeRegex.test(time);
+  };
+
   const convertTo24HourFormat = (time12h) => {
-    const [time, modifier] = time12h.split(' '); // Split time and AM/PM
+    const [time, modifier] = time12h.split(' ');
     let [hours, minutes] = time.split(':').map(Number);
 
-    if (modifier.toUpperCase() === 'PM' && hours !== 12) {
-      hours += 12;
-    } else if (modifier.toUpperCase() === 'AM' && hours === 12) {
-      hours = 0;
-    }
+    if (modifier.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+    if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
 
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   };
 
   try {
+    if (StartTime && !validateTimeFormat(StartTime)) {
+      return res.status(400).json({ message: 'Invalid StartTime format. Expected format: HH:MM AM/PM' });
+    }
+    if (EndTime && !validateTimeFormat(EndTime)) {
+      return res.status(400).json({ message: 'Invalid EndTime format. Expected format: HH:MM AM/PM' });
+    }
+
     const pool = await sql.connect(config);
     const request = pool.request();
     request.input('ScheduleID', sql.Int, id);
 
     let setClauses = [];
-
     if (SubjectCode) {
       setClauses.push('SubjectCode = @SubjectCode');
       request.input('SubjectCode', sql.NVarChar, SubjectCode);
@@ -285,11 +292,13 @@ const updateSchedule = async (req, res) => {
     }
     if (StartTime) {
       const startTime24 = convertTo24HourFormat(StartTime);
+      console.log('Converted StartTime:', startTime24);
       setClauses.push('StartTime = @StartTime');
       request.input('StartTime', sql.Time, startTime24);
     }
     if (EndTime) {
       const endTime24 = convertTo24HourFormat(EndTime);
+      console.log('Converted EndTime:', endTime24);
       setClauses.push('EndTime = @EndTime');
       request.input('EndTime', sql.Time, endTime24);
     }
@@ -302,12 +311,7 @@ const updateSchedule = async (req, res) => {
       return res.status(400).json({ message: 'No valid fields provided for update' });
     }
 
-    const query = `
-      UPDATE Schedules
-      SET ${setClauses.join(', ')}
-      WHERE ScheduleID = @ScheduleID
-    `;
-
+    const query = `UPDATE Schedules SET ${setClauses.join(', ')} WHERE ScheduleID = @ScheduleID`;
     const result = await request.query(query);
 
     if (result.rowsAffected[0] === 0) {
@@ -316,6 +320,9 @@ const updateSchedule = async (req, res) => {
 
     res.status(200).json({ message: 'Schedule updated successfully' });
   } catch (error) {
+    if (error.code === 'EPARAM') {
+      return res.status(400).json({ message: `Invalid parameter: ${error.message}` });
+    }
     console.error('Database error:', error);
     res.status(500).json({ message: 'An error occurred while updating the schedule.' });
   }
