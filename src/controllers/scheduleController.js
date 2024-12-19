@@ -246,96 +246,46 @@ const createSchedule = async (req, res) => {
 
 
 const updateSchedule = async (req, res) => {
-  const { id } = req.params;
-  const { SubjectCode, SubjectName, InstructorName, StartTime, EndTime, Room } = req.body;
-
-  const convertTo24HourFormat = (time12h) => {
-    try {
-      const [time, modifier] = time12h.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
-
-      if (modifier.toUpperCase() === 'PM' && hours !== 12) hours += 12;
-      if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
-
-      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`; // Ensure HH:MM:SS format
-    } catch (error) {
-      throw new Error(`Invalid time format: ${time12h}`);
-    }
-  };
-
-  // Initialize variables
-  let startTime24 = null;
-  let endTime24 = null;
-
   try {
-    const pool = await sql.connect(config);
-    const request = pool.request();
-    request.input('ScheduleID', sql.Int, id);
+      const convertTo24HourFormat = (time12h) => {
+          const [time, modifier] = time12h.split(' ');
+          let [hours, minutes] = time.split(':');
+          if (modifier === 'PM' && hours !== '12') hours = parseInt(hours, 10) + 12;
+          if (modifier === 'AM' && hours === '12') hours = '00';
+          return `${hours}:${minutes}`;
+      };
 
-    let setClauses = [];
-    if (SubjectCode) {
-      setClauses.push('SubjectCode = @SubjectCode');
-      request.input('SubjectCode', sql.NVarChar, SubjectCode);
-    }
-    if (SubjectName) {
-      setClauses.push('SubjectName = @SubjectName');
-      request.input('SubjectName', sql.NVarChar, SubjectName);
-    }
-    if (InstructorName) {
-      setClauses.push('InstructorName = @InstructorName');
-      request.input('InstructorName', sql.NVarChar, InstructorName);
-    }
-    if (StartTime) {
-      try {
-        startTime24 = convertTo24HourFormat(StartTime);
-        console.log('Converted StartTime:', startTime24); // Logs HH:MM:SS
-        setClauses.push('StartTime = @StartTime');
-        request.input('StartTime', sql.Time, startTime24); // TIME expects HH:MM:SS
-      } catch (error) {
-        return res.status(400).json({ message: `Invalid StartTime: ${error.message}` });
-      }
-    }
-    if (EndTime) {
-      try {
-        endTime24 = convertTo24HourFormat(EndTime);
-        console.log('Converted EndTime:', endTime24); // Logs HH:MM:SS
-        setClauses.push('EndTime = @EndTime');
-        request.input('EndTime', sql.Time, endTime24); // TIME expects HH:MM:SS
-      } catch (error) {
-        return res.status(400).json({ message: `Invalid EndTime: ${error.message}` });
-      }
-    }
-    if (Room) {
-      setClauses.push('Room = @Room');
-      request.input('Room', sql.NVarChar, Room);
-    }
+      const startTime24 = convertTo24HourFormat(req.body.StartTime);
+      const endTime24 = convertTo24HourFormat(req.body.EndTime);
 
-    if (setClauses.length === 0) {
-      return res.status(400).json({ message: 'No valid fields provided for update' });
-    }
+      const query = `
+          UPDATE Schedules 
+          SET SubjectCode = @SubjectCode, 
+              SubjectName = @SubjectName, 
+              InstructorName = @InstructorName, 
+              StartTime = @StartTime, 
+              EndTime = @EndTime, 
+              Room = @Room 
+          WHERE ScheduleID = @ScheduleID
+      `;
 
-    const query = `UPDATE Schedules SET ${setClauses.join(', ')} WHERE ScheduleID = @ScheduleID`;
-    console.log('Generated Query:', query);
-    console.log('Parameters:', { StartTime: startTime24 || 'N/A', EndTime: endTime24 || 'N/A' });
+      const params = {
+          SubjectCode: req.body.SubjectCode,
+          SubjectName: req.body.SubjectName,
+          InstructorName: req.body.InstructorName,
+          StartTime: startTime24,
+          EndTime: endTime24,
+          Room: req.body.Room,
+          ScheduleID: req.params.id,
+      };
 
-    const result = await request.query(query);
-
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ message: 'Schedule not found' });
-    }
-
-    res.status(200).json({ message: 'Schedule updated successfully' });
+      await database.execute(query, params); // Adjust this line based on your database client
+      res.status(200).send({ message: 'Schedule updated successfully' });
   } catch (error) {
-    console.error('Error updating schedule:', {
-      params: req.params,
-      body: req.body,
-      errorMessage: error.message,
-      stack: error.stack,
-    });
-
-    res.status(500).json({ message: 'An error occurred while updating the schedule.' });
+      res.status(500).send({ errorMessage: error.message });
   }
 };
+
 
 
 
