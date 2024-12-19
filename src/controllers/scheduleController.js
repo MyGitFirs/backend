@@ -266,12 +266,6 @@ const updateSchedule = async (req, res) => {
   
 
   try {
-    if (StartTime && !validateTimeFormat(StartTime)) {
-      return res.status(400).json({ message: 'Invalid StartTime format. Expected format: HH:MM AM/PM' });
-    }
-    if (EndTime && !validateTimeFormat(EndTime)) {
-      return res.status(400).json({ message: 'Invalid EndTime format. Expected format: HH:MM AM/PM' });
-    }
 
     const pool = await sql.connect(config);
     const request = pool.request();
