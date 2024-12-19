@@ -246,18 +246,21 @@ const createSchedule = async (req, res) => {
 
 
 // Update an existing schedule
+const moment = require('moment'); // Install this library if not already installed
+
 const updateSchedule = async (req, res) => {
   const { id } = req.params;
   const { SubjectCode, SubjectName, InstructorID, YearLevel, Section, DayOfWeek, StartTime, EndTime, Room } = req.body;
+
   console.log(req.body);
   try {
     const pool = await sql.connect(config);
     const request = pool.request();
     request.input('ScheduleID', sql.Int, id);
-    
+
     // Dynamically build the SET clause based on non-empty fields
     let setClauses = [];
-    
+
     if (SubjectCode) {
       setClauses.push('SubjectCode = @SubjectCode');
       request.input('SubjectCode', sql.NVarChar, SubjectCode);
@@ -283,14 +286,16 @@ const updateSchedule = async (req, res) => {
       request.input('DayOfWeek', sql.NVarChar, DayOfWeek);
     }
     if (StartTime) {
+      const formattedStartTime = moment(StartTime, ['h:mm A']).format('HH:mm:ss');
       setClauses.push('StartTime = @StartTime');
-      request.input('StartTime', sql.Time, StartTime);
+      request.input('StartTime', sql.Time, formattedStartTime);
     }
     if (EndTime) {
+      const formattedEndTime = moment(EndTime, ['h:mm A']).format('HH:mm:ss');
       setClauses.push('EndTime = @EndTime');
-      request.input('EndTime', sql.Time, EndTime);
+      request.input('EndTime', sql.Time, formattedEndTime);
     }
-    if (Room) { // Add Room field if it is present
+    if (Room) {
       setClauses.push('Room = @Room');
       request.input('Room', sql.NVarChar, Room);
     }
@@ -298,7 +303,7 @@ const updateSchedule = async (req, res) => {
     if (setClauses.length === 0) {
       return res.status(400).json({ message: 'No valid fields provided for update' });
     }
-    
+
     const query = `
       UPDATE Schedules
       SET ${setClauses.join(', ')}
@@ -317,6 +322,7 @@ const updateSchedule = async (req, res) => {
     res.status(500).json({ message: 'Database error' });
   }
 };
+
 
 
 // Delete a schedule
