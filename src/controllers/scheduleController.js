@@ -249,7 +249,6 @@ const createSchedule = async (req, res) => {
 const updateSchedule = async (req, res) => {
   const { id } = req.params;
   const { SubjectCode, SubjectName, InstructorName, StartTime, EndTime, Room } = req.body;
-
   const validateTimeFormat = (time) => {
     const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9]\s?(AM|PM)$/i;
     return timeRegex.test(time);
@@ -320,12 +319,18 @@ const updateSchedule = async (req, res) => {
 
     res.status(200).json({ message: 'Schedule updated successfully' });
   } catch (error) {
+    console.error('Error updating schedule:', {
+      params: req.params,
+      body: req.body,
+      errorMessage: error.message,
+      stack: error.stack,
+    });
+  
     if (error.code === 'EPARAM') {
       return res.status(400).json({ message: `Invalid parameter: ${error.message}` });
     }
-    console.error('Database error:', error);
     res.status(500).json({ message: 'An error occurred while updating the schedule.' });
-  }
+  }  
 };
 
 
