@@ -257,12 +257,13 @@ const updateSchedule = async (req, res) => {
   const convertTo24HourFormat = (time12h) => {
     const [time, modifier] = time12h.split(' ');
     let [hours, minutes] = time.split(':').map(Number);
-
+  
     if (modifier.toUpperCase() === 'PM' && hours !== 12) hours += 12;
     if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
-
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`; // Ensure HH:MM:SS format
   };
+  
 
   try {
     if (StartTime && !validateTimeFormat(StartTime)) {
@@ -291,16 +292,16 @@ const updateSchedule = async (req, res) => {
     }
     if (StartTime) {
       const startTime24 = convertTo24HourFormat(StartTime);
-      console.log('Converted StartTime:', startTime24);
+      console.log('Converted StartTime:', startTime24); // Logs HH:MM:SS
       setClauses.push('StartTime = @StartTime');
-      request.input('StartTime', sql.Time, startTime24);
+      request.input('StartTime', sql.Time, startTime24); // TIME expects HH:MM:SS
     }
     if (EndTime) {
       const endTime24 = convertTo24HourFormat(EndTime);
-      console.log('Converted EndTime:', endTime24);
+      console.log('Converted EndTime:', endTime24); // Logs HH:MM:SS
       setClauses.push('EndTime = @EndTime');
-      request.input('EndTime', sql.Time, endTime24);
-    }
+      request.input('EndTime', sql.Time, endTime24); // TIME expects HH:MM:SS
+    }    
     if (Room) {
       setClauses.push('Room = @Room');
       request.input('Room', sql.NVarChar, Room);
