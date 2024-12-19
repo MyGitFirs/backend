@@ -312,6 +312,9 @@ const updateSchedule = async (req, res) => {
     }
 
     const query = `UPDATE Schedules SET ${setClauses.join(', ')} WHERE ScheduleID = @ScheduleID`;
+    console.log('Generated Query:', query);
+    console.log('Parameters:', { StartTime: startTime24, EndTime: endTime24 });
+
     const result = await request.query(query);
 
     if (result.rowsAffected[0] === 0) {
