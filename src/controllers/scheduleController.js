@@ -248,16 +248,29 @@ const createSchedule = async (req, res) => {
 // Update an existing schedule
 const updateSchedule = async (req, res) => {
   const { id } = req.params;
-  const { SubjectCode, SubjectName, InstructorID, YearLevel, Section, DayOfWeek, StartTime, EndTime, Room } = req.body;
-  console.log(req.body);
+  const { SubjectCode, SubjectName, InstructorName, StartTime, EndTime, Room } = req.body;
+
+  // Helper function to convert 12-hour time to 24-hour format
+  const convertTo24HourFormat = (time12h) => {
+    const [time, modifier] = time12h.split(' '); // Split time and AM/PM
+    let [hours, minutes] = time.split(':').map(Number);
+
+    if (modifier.toUpperCase() === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (modifier.toUpperCase() === 'AM' && hours === 12) {
+      hours = 0;
+    }
+
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
   try {
     const pool = await sql.connect(config);
     const request = pool.request();
     request.input('ScheduleID', sql.Int, id);
-    
-    // Dynamically build the SET clause based on non-empty fields
+
     let setClauses = [];
-    
+
     if (SubjectCode) {
       setClauses.push('SubjectCode = @SubjectCode');
       request.input('SubjectCode', sql.NVarChar, SubjectCode);
@@ -266,31 +279,21 @@ const updateSchedule = async (req, res) => {
       setClauses.push('SubjectName = @SubjectName');
       request.input('SubjectName', sql.NVarChar, SubjectName);
     }
-    if (InstructorID) {
-      setClauses.push('InstructorID = @InstructorID');
-      request.input('InstructorID', sql.Int, InstructorID);
-    }
-    if (YearLevel) {
-      setClauses.push('YearLevel = @YearLevel');
-      request.input('YearLevel', sql.NVarChar, YearLevel);
-    }
-    if (Section) {
-      setClauses.push('Section = @Section');
-      request.input('Section', sql.NVarChar, Section);
-    }
-    if (DayOfWeek) {
-      setClauses.push('DayOfWeek = @DayOfWeek');
-      request.input('DayOfWeek', sql.NVarChar, DayOfWeek);
+    if (InstructorName) {
+      setClauses.push('InstructorName = @InstructorName');
+      request.input('InstructorName', sql.NVarChar, InstructorName);
     }
     if (StartTime) {
+      const startTime24 = convertTo24HourFormat(StartTime);
       setClauses.push('StartTime = @StartTime');
-      request.input('StartTime', sql.Time, StartTime);
+      request.input('StartTime', sql.Time, startTime24);
     }
     if (EndTime) {
+      const endTime24 = convertTo24HourFormat(EndTime);
       setClauses.push('EndTime = @EndTime');
-      request.input('EndTime', sql.Time, EndTime);
+      request.input('EndTime', sql.Time, endTime24);
     }
-    if (Room) { // Add Room field if it is present
+    if (Room) {
       setClauses.push('Room = @Room');
       request.input('Room', sql.NVarChar, Room);
     }
@@ -298,7 +301,7 @@ const updateSchedule = async (req, res) => {
     if (setClauses.length === 0) {
       return res.status(400).json({ message: 'No valid fields provided for update' });
     }
-    
+
     const query = `
       UPDATE Schedules
       SET ${setClauses.join(', ')}
@@ -313,10 +316,11 @@ const updateSchedule = async (req, res) => {
 
     res.status(200).json({ message: 'Schedule updated successfully' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Database error' });
+    console.error('Database error:', error);
+    res.status(500).json({ message: 'An error occurred while updating the schedule.' });
   }
 };
+
 
 
 // Delete a schedule

@@ -162,7 +162,7 @@ const endSession = async (req, res) => {
 
     await pool.request()
       .input('sessionId', sql.Int, sessionId)
-      .query('UPDATE sessions SET active = 0 WHERE id = @sessionId');
+      .query('UPDATE sessions SET active = 0, WHERE id = @sessionId');
 
     // Cancel the timer if it's active
     if (timers[sessionId]) {
